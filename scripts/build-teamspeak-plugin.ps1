@@ -108,6 +108,10 @@ function Invoke-PluginBuild {
         [Parameter(Mandatory = $true)][string]$MsBuild
     )
 
+    if (-not $IntermediateDirectory.EndsWith('\')) {
+        $IntermediateDirectory += '\'
+    }
+
     New-Item -ItemType Directory -Path $IntermediateDirectory -Force | Out-Null
 
     Write-Host "::group::Сборка $Configuration|$Platform"
