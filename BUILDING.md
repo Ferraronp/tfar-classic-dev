@@ -150,13 +150,37 @@ ts\src\build\task_force_radio_win32.dll
 
 ## 5. Проверка экспортов
 
-Команда dumpbin доступна в Developer PowerShell for VS 2022:
+`dumpbin.exe` устанавливается вместе с MSVC C++ Build Tools, но в обычном PowerShell обычно отсутствует в `PATH`. Найдём его автоматически через каталог установленной Visual Studio:
 
 ~~~powershell
-dumpbin /exports "$repo\ts\src\build\task_force_radio_win64.dll" |
+$dumpbin = (Get-Command dumpbin.exe -ErrorAction SilentlyContinue).Source
+
+if (-not $dumpbin) {
+    $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+    $vswhere = "$programFilesX86\Microsoft Visual Studio\Installer\vswhere.exe"
+
+    $installPath = & $vswhere `
+      -latest `
+      -products * `
+      -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+      -property installationPath
+
+    $dumpbin = Get-ChildItem `
+      "$installPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" `
+      -File `
+      -ErrorAction SilentlyContinue |
+      Sort-Object FullName -Descending |
+      Select-Object -First 1 -ExpandProperty FullName
+}
+
+if (-not $dumpbin -or -not (Test-Path $dumpbin)) {
+    throw "dumpbin.exe не найден — проверьте установку MSVC C++ Build Tools"
+}
+
+& $dumpbin /exports "$repo\ts\src\build\task_force_radio_win64.dll" |
   findstr "ts3plugin_apiVersion ts3plugin_onPluginCommandEvent"
 
-dumpbin /exports "$repo\ts\src\build\task_force_radio_win32.dll" |
+& $dumpbin /exports "$repo\ts\src\build\task_force_radio_win32.dll" |
   findstr "ts3plugin_apiVersion ts3plugin_onPluginCommandEvent"
 ~~~
 
