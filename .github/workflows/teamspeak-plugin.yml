@@ -1,0 +1,52 @@
+name: Сборка TeamSpeak-плагина
+
+on:
+  pull_request:
+  push:
+    branches:
+      - classic
+    paths:
+      - "ts/**"
+      - "scripts/build-teamspeak-plugin.ps1"
+      - ".github/workflows/teamspeak-plugin.yml"
+      - "BUILDING.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: teamspeak-plugin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Win32, x64 и установщик
+    runs-on: windows-2022
+    timeout-minutes: 30
+
+    steps:
+      - name: Получить исходники без игровых LFS-объектов
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          sparse-checkout: |
+            scripts
+            ts
+          sparse-checkout-cone-mode: true
+
+      - name: Собрать и проверить TeamSpeak-плагин
+        shell: pwsh
+        run: ./scripts/build-teamspeak-plugin.ps1
+
+      - name: Опубликовать DLL и установщик
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfar-classic-teamspeak-${{ github.run_number }}
+          path: |
+            dist/teamspeak-plugin/task_force_radio_win32.dll
+            dist/teamspeak-plugin/task_force_radio_win64.dll
+            dist/teamspeak-plugin/tfar-classic-api26.ts3_plugin
+          if-no-files-found: error
+          retention-days: 14
