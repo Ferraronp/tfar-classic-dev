@@ -38,6 +38,7 @@ jobs:
         with:
           fetch-depth: 1
           lfs: false
+          show-progress: false
           sparse-checkout: |
             arma3/@task_force_radio/addons/task_force_radio
             scripts/build-arma-addon.ps1

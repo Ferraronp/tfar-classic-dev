@@ -106,8 +106,18 @@ try {
     & $hemttCommand.Source release --no-bin --no-archive *> $hemttLog
     $hemttExitCode = $LASTEXITCODE
 
-    Write-Host "Последние строки журнала HEMTT:"
-    Get-Content $hemttLog -Tail 120 | ForEach-Object { Write-Host $_ }
+    $hemttLines = Get-Content $hemttLog
+    $hemttDiagnostics = $hemttLines |
+        Where-Object { $_ -notmatch "TRACE" } |
+        Select-Object -Last 80
+
+    Write-Host "Диагностика HEMTT:"
+    if ($hemttDiagnostics) {
+        $hemttDiagnostics | ForEach-Object { Write-Host $_ }
+    }
+    else {
+        $hemttLines | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
+    }
 
     if ($hemttExitCode -ne 0) {
         throw "HEMTT завершил сборку с кодом $hemttExitCode. Полный журнал: $hemttLog"
