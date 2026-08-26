@@ -43,7 +43,7 @@ jobs:
       - name: Опубликовать DLL и установщик
         uses: actions/upload-artifact@v7
         with:
-          name: tfar-classic-teamspeak-${{ github.run_number }}
+          name: tfar-classic-teamspeak-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             dist/teamspeak-plugin/task_force_radio_win32.dll
             dist/teamspeak-plugin/task_force_radio_win64.dll
