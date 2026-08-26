@@ -89,6 +89,19 @@ Get-ChildItem $stageAddon -File -Recurse |
         }
     }
 
+# The 0.9.12 stringtable predates HEMTT's current schema and uses `ID` for
+# grouping nodes. Arma accepts the modern equivalent with `name`; normalize the
+# staging copy so HEMTT can validate and retain all translations in the PBO.
+$stringtablePath = Join-Path $stageAddon "stringtable.xml"
+if (Test-Path $stringtablePath) {
+    $stringtable = [System.IO.File]::ReadAllText($stringtablePath)
+    $stringtable = $stringtable -replace '<Project ID=', '<Project name='
+    $stringtable = $stringtable -replace '<Package ID=', '<Package name='
+    $stringtable = $stringtable -replace '<Container ID=', '<Container name='
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($stringtablePath, $stringtable, $utf8WithoutBom)
+}
+
 Set-Content -Path (Join-Path $stageAddon '$PBOPREFIX$') -Value "task_force_radio" -NoNewline
 
 @'
