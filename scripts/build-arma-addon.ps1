@@ -97,6 +97,11 @@ ignore_pboprefix = true
 [binarize]
 enabled = false
 
+# Classic UI resources use legacy runtime expressions (for example,
+# `safezoneW`) that Arma accepts but modern HEMTT rapify rejects.
+[rapify]
+enabled = false
+
 [files]
 exclude = [
     "**/.gitattributes",
