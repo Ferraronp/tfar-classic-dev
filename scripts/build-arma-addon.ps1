@@ -69,6 +69,26 @@ New-Item $artifactKeys -ItemType Directory -Force | Out-Null
 
 Copy-Item (Join-Path $sourceAddon "*") $stageAddon -Recurse -Force
 
+# HEMTT rejects UTF-8 BOM markers in included config files. Classic 0.9.12
+# contains one in description.h, so normalize text files only in the temporary
+# staging tree and leave the historical source files untouched.
+$textExtensions = @(".cpp", ".h", ".hpp", ".inc", ".sqf", ".xml")
+Get-ChildItem $stageAddon -File -Recurse |
+    Where-Object { $_.Extension.ToLowerInvariant() -in $textExtensions } |
+    ForEach-Object {
+        $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+        if (
+            $bytes.Length -ge 3 -and
+            $bytes[0] -eq 0xEF -and
+            $bytes[1] -eq 0xBB -and
+            $bytes[2] -eq 0xBF
+        ) {
+            $withoutBom = New-Object byte[] ($bytes.Length - 3)
+            [System.Array]::Copy($bytes, 3, $withoutBom, 0, $withoutBom.Length)
+            [System.IO.File]::WriteAllBytes($_.FullName, $withoutBom)
+        }
+    }
+
 Set-Content -Path (Join-Path $stageAddon '$PBOPREFIX$') -Value "task_force_radio" -NoNewline
 
 @'
