@@ -104,9 +104,13 @@ Start-Process `
 
 ## 4. Сборка Release x64 и Win32
 
+Старый проект использует общую папку промежуточных файлов для обеих платформ. Поэтому задаём отдельный `IntDir` для x64 и Win32: иначе второй `Rebuild` может удалить DLL, собранную первой командой.
+
 ~~~powershell
 $repo = (git rev-parse --show-toplevel).Trim()
 $solution = "$repo\ts\src\task_force_radio_plugin.sln"
+$x64IntDir = "$repo\ts\src\obj\x64\Release\"
+$win32IntDir = "$repo\ts\src\obj\Win32\Release\"
 
 & $msbuild $solution `
   /t:Rebuild `
@@ -114,7 +118,8 @@ $solution = "$repo\ts\src\task_force_radio_plugin.sln"
   /p:Configuration=Release `
   /p:Platform=x64 `
   /p:PlatformToolset=v143 `
-  /p:WindowsTargetPlatformVersion=10.0
+  /p:WindowsTargetPlatformVersion=10.0 `
+  "/p:IntDir=$x64IntDir"
 
 if ($LASTEXITCODE -ne 0) {
     throw "Сборка x64 завершилась с ошибкой"
@@ -126,30 +131,22 @@ if ($LASTEXITCODE -ne 0) {
   /p:Configuration=Release `
   /p:Platform=Win32 `
   /p:PlatformToolset=v143 `
-  /p:WindowsTargetPlatformVersion=10.0
+  /p:WindowsTargetPlatformVersion=10.0 `
+  "/p:IntDir=$win32IntDir"
 
 if ($LASTEXITCODE -ne 0) {
     throw "Сборка Win32 завершилась с ошибкой"
 }
 ~~~
 
-Платформы собираются последовательно: у старого проекта общая папка промежуточных файлов Release.
-
 Готовые файлы:
 
 ~~~text
-ts\src\build\task_force_radio_win32.dll
 ts\src\build\task_force_radio_win64.dll
+ts\src\build\task_force_radio_win32.dll
 ~~~
 
-Проверка:
-
-~~~powershell
-Get-ChildItem "$repo\ts\src\build\task_force_radio_win*.dll" |
-  Select-Object Name, Length, LastWriteTime
-~~~
-
-Обе DLL должны иметь ненулевой размер и актуальное время сборки.
+Старый код может вывести много предупреждений. Если `Ошибок: 0` и `$LASTEXITCODE` равен `0`, сборка считается успешной.
 
 ## 5. Проверка экспортов
 
@@ -378,7 +375,9 @@ Get-FileHash $installed -Algorithm SHA256
 Результаты локальной сборки и упаковки не входят в исходный код:
 
 ~~~text
+.idea/
 ts/src/build/
+ts/src/obj/
 dist/
 ~~~
 
