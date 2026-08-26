@@ -1,0 +1,63 @@
+name: Сборка игрового аддона
+
+on:
+  pull_request:
+    branches:
+      - classic
+    paths:
+      - "arma3/@task_force_radio/addons/task_force_radio/**"
+      - "scripts/build-arma-addon.ps1"
+      - ".github/workflows/arma-addon.yml"
+      - "BUILDING.md"
+  push:
+    branches:
+      - classic
+    paths:
+      - "arma3/@task_force_radio/addons/task_force_radio/**"
+      - "scripts/build-arma-addon.ps1"
+      - ".github/workflows/arma-addon.yml"
+      - "BUILDING.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arma-addon-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: task_force_radio.pbo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Получить исходники игрового аддона
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          sparse-checkout: |
+            arma3/@task_force_radio/addons/task_force_radio
+            scripts/build-arma-addon.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Получить нужные Git LFS-файлы
+        shell: bash
+        run: git lfs pull --include="arma3/@task_force_radio/addons/task_force_radio/**"
+
+      - name: Установить HEMTT
+        uses: arma-actions/hemtt@v1
+
+      - name: Собрать и подписать PBO
+        shell: pwsh
+        run: ./scripts/build-arma-addon.ps1
+
+      - name: Опубликовать тестовую сборку
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfar-classic-game-${{ github.run_number }}-${{ github.run_attempt }}
+          path: dist/game-addon/tfar-classic-game.zip
+          if-no-files-found: error
+          retention-days: 14

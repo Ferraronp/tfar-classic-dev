@@ -17,4 +17,10 @@
     call TFAR_fnc_currentUnit;
 */
 private ["_unit"];
-missionNamespace getVariable ["bis_fnc_moduleRemoteControl_unit", player]
+_unit = missionNamespace getVariable ["bis_fnc_moduleRemoteControl_unit", objNull];
+
+if (isNull _unit) then {
+	player
+} else {
+	_unit
+}

@@ -27,16 +27,16 @@ if !(isNull (findDisplay 46)) then {
 				tf_nearPlayers = call TFAR_fnc_getNearPlayers;
 			};
 
-			_other_units = allUnits - tf_nearPlayers;
-			
-				
-			{		
-				if !(_x in _other_units) then {
-					_other_units pushBack _x;	
+			// Curator bodies can be far away while their controlled units are
+			// nearby. Process all curators with the high-frequency queue.
+			{
+				if !(_x in tf_nearPlayers) then {
+					tf_nearPlayers pushBack _x;
 				};
 				true;
-			} count (call BIS_fnc_listCuratorPlayers);//Add curators
-			
+			} count (call BIS_fnc_listCuratorPlayers);
+
+			_other_units = allUnits - tf_nearPlayers;
 			
 			tf_farPlayers = [];
 			tf_farPlayersIndex = 0;	
@@ -79,8 +79,8 @@ if !(isNull (findDisplay 46)) then {
 				for "_y" from 0 to _elemsNearToProcess step 1 do {
 					if (tf_nearPlayersIndex < count tf_nearPlayers) then {
 						_unit = (tf_nearPlayers select tf_nearPlayersIndex);
-						_controlled = _unit getVariable "tf_controlled_unit";
-						if !(isNil "_controlled") then {
+						_controlled = _unit getVariable ["tf_controlled_unit", objNull];
+						if !(isNull _controlled) then {
 							[_controlled, true, name _unit] call TFAR_fnc_sendPlayerInfo;
 						} else {
 							[_unit, true, name _unit] call TFAR_fnc_sendPlayerInfo;
@@ -114,7 +114,12 @@ if !(isNull (findDisplay 46)) then {
 				for "_y" from 0 to _elemsFarToProcess step 1 do {
 					if (tf_farPlayersIndex < count tf_farPlayers) then {
 						_unit = (tf_farPlayers select tf_farPlayersIndex);
-						[_unit, false, name _unit] call TFAR_fnc_sendPlayerInfo;
+						_controlled = _unit getVariable ["tf_controlled_unit", objNull];
+						if !(isNull _controlled) then {
+							[_controlled, false, name _unit] call TFAR_fnc_sendPlayerInfo;
+						} else {
+							[_unit, false, name _unit] call TFAR_fnc_sendPlayerInfo;
+						};
 						tf_farPlayersIndex = tf_farPlayersIndex + 1;
 					} else {
 						tf_farPlayersIndex = 0;

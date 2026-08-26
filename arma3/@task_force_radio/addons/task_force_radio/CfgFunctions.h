@@ -115,6 +115,7 @@ class CfgFunctions
 			class onLRDialogOpen;
 			class onDDDialogOpen;
 			class onGroundHint;
+			class onCurrentUnitChanged;
 			// P
 			class preparePositionCoordinates;
 			class processSWChannelKeys;

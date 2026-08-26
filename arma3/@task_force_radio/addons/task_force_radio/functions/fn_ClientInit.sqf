@@ -291,7 +291,14 @@ player addEventHandler ["killed", {
 };
 TF_respawnedAt = time;
 TFAR_previouscurrentUnit = nil;
-TFAR_currentUnit = player;
+TFAR_currentUnit = call TFAR_fnc_currentUnit;
+
+// CBA reports respawn and Zeus remote-control changes through the same event.
+// The polling in radioReplaceProcess remains as a fallback for old missions.
+["unit", {
+	[_this select 0, _this select 1] call TFAR_fnc_onCurrentUnitChanged;
+}, true] call CBA_fnc_addPlayerEventHandler;
+
 [] spawn {
 	waitUntil {sleep 0.1;!(isNull player)};
 	if (player call TFAR_fnc_isForcedCurator) then {
