@@ -54,6 +54,17 @@ jobs:
         shell: pwsh
         run: ./scripts/build-arma-addon.ps1
 
+      - name: Сохранить журнал HEMTT
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfar-classic-game-build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            dist/arma-addon-stage/hemtt-release.log
+            dist/arma-addon-stage/.hemttout/latest.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Опубликовать тестовую сборку
         uses: actions/upload-artifact@v7
         with:

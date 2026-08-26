@@ -36,6 +36,7 @@ $artifactMod = Join-Path $artifactRoot "@task_force_radio"
 $artifactAddons = Join-Path $artifactMod "addons"
 $artifactKeys = Join-Path $artifactRoot "keys"
 $archive = Join-Path $artifactRoot "tfar-classic-game.zip"
+$hemttLog = Join-Path $stageRoot "hemtt-release.log"
 
 if (-not (Test-Path $sourceAddon)) {
     throw "Исходники игрового аддона не найдены: $sourceAddon"
@@ -102,9 +103,14 @@ archive = false
 
 Push-Location $stageRoot
 try {
-    & $hemttCommand.Source release --no-bin --no-archive
-    if ($LASTEXITCODE -ne 0) {
-        throw "HEMTT завершил сборку с кодом $LASTEXITCODE"
+    & $hemttCommand.Source release --no-bin --no-archive *> $hemttLog
+    $hemttExitCode = $LASTEXITCODE
+
+    Write-Host "Последние строки журнала HEMTT:"
+    Get-Content $hemttLog -Tail 120 | ForEach-Object { Write-Host $_ }
+
+    if ($hemttExitCode -ne 0) {
+        throw "HEMTT завершил сборку с кодом $hemttExitCode. Полный журнал: $hemttLog"
     }
 }
 finally {
