@@ -132,16 +132,20 @@ try {
     $hemttExitCode = $LASTEXITCODE
 
     $hemttLines = Get-Content $hemttLog
-    $hemttDiagnostics = $hemttLines |
-        Where-Object { $_ -notmatch "TRACE" } |
-        Select-Object -Last 80
+    $hemttErrors = Select-String -Path $hemttLog -Pattern "error\[" -Context 0, 6
 
     Write-Host "Диагностика HEMTT:"
-    if ($hemttDiagnostics) {
-        $hemttDiagnostics | ForEach-Object { Write-Host $_ }
+    if ($hemttErrors) {
+        $hemttErrors | Select-Object -First 5 | ForEach-Object {
+            Write-Host $_.Line
+            $_.Context.PostContext | ForEach-Object { Write-Host $_ }
+        }
     }
     else {
-        $hemttLines | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
+        $hemttLines |
+            Where-Object { $_ -notmatch "TRACE|warning\[" } |
+            Select-Object -Last 25 |
+            ForEach-Object { Write-Host $_ }
     }
 
     if ($hemttExitCode -ne 0) {
