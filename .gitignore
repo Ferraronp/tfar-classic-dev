@@ -57,3 +57,9 @@
 /arma3/@task_force_radio/keys/DSCreateKey.exe
 *.suo
 *.opendb
+
+# Локальные настройки IDE и артефакты сборки
+/.idea/
+/ts/src/build/
+/ts/src/obj/
+/dist/
