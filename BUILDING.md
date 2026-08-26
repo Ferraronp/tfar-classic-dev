@@ -26,7 +26,7 @@
 Set-Location C:\Artur\Projects\tfar-classic
 
 git fetch origin
-git switch fix/teamspeak-api26
+git switch classic
 git pull --ff-only
 git status
 ~~~
@@ -102,7 +102,51 @@ Start-Process `
 
 Параметр --includeRecommended добавляет MSVC v143 x86/x64 и актуальный Windows SDK. После завершения установки нужно открыть новое окно PowerShell и повторить две проверки Test-Path.
 
-## 4. Сборка Release x64 и Win32
+## 4. Сборка и упаковка
+
+### Автоматический способ
+
+Рекомендуемый вариант собирает обе архитектуры, проверяет обязательные экспорты и создаёт установщик одной командой:
+
+~~~powershell
+.\scripts\build-teamspeak-plugin.ps1
+~~~
+
+Готовые распространяемые файлы появятся в:
+
+~~~text
+dist\teamspeak-plugin\task_force_radio_win32.dll
+dist\teamspeak-plugin\task_force_radio_win64.dll
+dist\teamspeak-plugin\tfar-classic-api26.ts3_plugin
+~~~
+
+Скрипт:
+
+- сам находит Visual Studio, MSBuild, dumpbin и 7-Zip;
+- собирает Win32 и x64 с разными `IntDir`;
+- проверяет ненулевой размер DLL и обязательные экспорты;
+- загружает официальный установщик TFAR 0.9.12, если его ещё нет;
+- заменяет в нём только две DLL;
+- проверяет структуру готового `.ts3_plugin`;
+- выводит SHA-256 всех результатов.
+
+Чтобы собрать и проверить только DLL без установщика:
+
+~~~powershell
+.\scripts\build-teamspeak-plugin.ps1 -SkipPackage
+~~~
+
+### GitHub Actions
+
+Workflow `.github/workflows/teamspeak-plugin.yml` запускается:
+
+- для каждого pull request;
+- после релевантных изменений в ветке `classic`;
+- вручную через вкладку Actions.
+
+Runner получает только папки `ts` и `scripts` через sparse checkout. Игровые модели и Git LFS-объекты не загружаются. После успешного запуска artifact содержит обе DLL и `tfar-classic-api26.ts3_plugin`.
+
+### Ручная сборка Release x64 и Win32
 
 Старый проект использует общую папку промежуточных файлов для обеих платформ. Поэтому задаём отдельный `IntDir` для x64 и Win32: иначе второй `Rebuild` может удалить DLL, собранную первой командой.
 
@@ -230,7 +274,7 @@ Get-Item `
   Select-Object FullName, Length, LastWriteTime
 ~~~
 
-## 7. Упаковка .ts3_plugin
+## 7. Ручная упаковка .ts3_plugin
 
 За основу используется официальный установщик TFAR 0.9.12. Его структура и звуки сохраняются, заменяются только DLL.
 
