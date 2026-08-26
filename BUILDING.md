@@ -258,7 +258,7 @@ if (-not (Test-Path $original)) {
 $sevenZip = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source
 
 if (-not $sevenZip) {
-    $sevenZip = "C:\Program Files\7-Zip\7z.exe"
+    $sevenZip = "C:\Programs\7-Zip\7z.exe"
 }
 
 if (-not (Test-Path $sevenZip)) {
