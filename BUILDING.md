@@ -33,26 +33,74 @@ git status
 
 Перед сборкой рабочее дерево должно быть чистым.
 
-## 3. Поиск MSBuild
+## 3. Проверка среды C++
 
-Проще всего открыть **Developer PowerShell for VS 2022**. В обычном PowerShell MSBuild можно найти через vswhere:
+Наличия одного MSBuild недостаточно: отдельно должны быть установлены VC targets, компиляторы x86/x64 и Windows SDK.
 
 ~~~powershell
 $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
 $vswhere = "$programFilesX86\Microsoft Visual Studio\Installer\vswhere.exe"
 
-$msbuild = & $vswhere `
+$installPath = & $vswhere `
   -latest `
   -products * `
-  -requires Microsoft.Component.MSBuild `
-  -find "MSBuild\**\Bin\MSBuild.exe" |
-  Select-Object -First 1
+  -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+  -property installationPath
 
-$msbuild
+if (-not $installPath) {
+    throw "Не установлены MSVC C++ Build Tools x86/x64"
+}
+
+$msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
+$cppProps = "$installPath\MSBuild\Microsoft\VC\v170\Microsoft.Cpp.Default.props"
+
 Test-Path $msbuild
+Test-Path $cppProps
 ~~~
 
-Test-Path должен вернуть True. Если путь не найден, через Visual Studio Installer нужно добавить workload C++ и MSBuild.
+Обе проверки должны вернуть True. Если Microsoft.Cpp.Default.props отсутствует, установлен только MSBuild без C++ toolchain. Сборка в таком состоянии завершается ошибкой MSB4019 ещё до компиляции кода.
+
+### Установка через интерфейс
+
+1. Открыть **Visual Studio Installer**.
+2. У Build Tools 2022 нажать **Изменить**.
+3. Выбрать workload **Разработка классических приложений на C++**.
+4. Убедиться, что выбраны:
+   - MSVC v143 — VS 2022 C++ x64/x86 build tools;
+   - Windows 10 SDK или Windows 11 SDK.
+5. Применить изменения и заново открыть PowerShell.
+
+### Установка через командную строку
+
+Альтернативно существующую установку Build Tools можно дополнить официальным workload VCTools:
+
+~~~powershell
+$existingInstall = & $vswhere `
+  -latest `
+  -products * `
+  -property installationPath
+
+$setup = "$programFilesX86\Microsoft Visual Studio\Installer\setup.exe"
+
+$setupArguments = @(
+    "modify"
+    "--installPath"
+    "`"$existingInstall`""
+    "--add"
+    "Microsoft.VisualStudio.Workload.VCTools"
+    "--includeRecommended"
+    "--passive"
+    "--norestart"
+)
+
+Start-Process `
+  -FilePath $setup `
+  -ArgumentList $setupArguments `
+  -Verb RunAs `
+  -Wait
+~~~
+
+Параметр --includeRecommended добавляет MSVC v143 x86/x64 и актуальный Windows SDK. После завершения установки нужно открыть новое окно PowerShell и повторить две проверки Test-Path.
 
 ## 4. Сборка Release x64 и Win32
 
