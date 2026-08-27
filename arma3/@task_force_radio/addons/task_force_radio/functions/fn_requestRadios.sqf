@@ -10,7 +10,10 @@
 		handles waiting for response from server with radio classnames and applying them to the player.
 	
 	Parameters:
-		Nothing
+		BOOLEAN - Replace all radios and bypass the request throttle
+		or ARRAY:
+			0: BOOLEAN - Replace all radios
+			1: BOOLEAN - Bypass the request throttle
  	
  	Returns:
 		Nothing
@@ -18,10 +21,16 @@
  	Example:
 		spawn TFAR_fnc_requestRadios;
 */
-private ["_radiosToRequest", "_variableName", "_responseVariableName", "_response", "_fnc_CopySettings", "_unit", "_ownerId"];
+private ["_radiosToRequest", "_variableName", "_responseVariableName", "_response", "_fnc_CopySettings", "_unit", "_ownerId", "_forceReplace", "_bypassThrottle"];
 
 _unit = TFAR_currentUnit;
 _ownerId = _unit call TFAR_fnc_getRadioOwnerId;
+_forceReplace = _this;
+_bypassThrottle = _this;
+if (typename _this == "ARRAY") then {
+	_forceReplace = _this select 0;
+	_bypassThrottle = _this select 1;
+};
 
 _fnc_CopySettings = {
 	private ["_source", "_destination", "_variableName", "_localSettings"];
@@ -45,10 +54,10 @@ waitUntil {
 	false;
 };
 
-if ((time - TF_last_request_time > 3) or {_this}) then {
+if ((time - TF_last_request_time > 3) or {_bypassThrottle}) then {
 	TF_last_request_time = time;
 	_variableName = "radio_request_" + (getPlayerUID player) + str (player call BIS_fnc_objectSide);
-	_radiosToRequest = [_this, _unit] call TFAR_fnc_radioToRequestCount;
+	_radiosToRequest = [_forceReplace, _unit] call TFAR_fnc_radioToRequestCount;
 
 	if ((count _radiosToRequest) > 0) then {
 		missionNamespace setVariable [_variableName, _radiosToRequest];

@@ -88,6 +88,21 @@ if (_changed) then {
 	tf_speakerRadios = [];
 	tf_lastNearPlayersUpdate = 0;
 	tf_lastFrequencyInfoTick = 0;
+
+	// Run radio-instance normalisation immediately on a unit switch. The
+	// regular polling loop is throttled, which otherwise leaves a short window
+	// where two units can still share the same SW settings.
+	[_newUnit] spawn {
+		private "_unit";
+		_unit = _this select 0;
+		waitUntil {
+			sleep 0.05;
+			!(missionNamespace getVariable ["TF_radio_request_mutex", false]) or {TFAR_currentUnit != _unit}
+		};
+		if ((TFAR_currentUnit == _unit) and {alive _unit}) then {
+			[false, true] call TFAR_fnc_requestRadios;
+		};
+	};
 };
 
 // Other clients use this variable to place the TeamSpeak voice at the
