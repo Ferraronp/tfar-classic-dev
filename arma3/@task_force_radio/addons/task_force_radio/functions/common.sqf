@@ -24,6 +24,23 @@ TF_ADDITIONAL_STEREO_OFFSET = TF_ADDITIONAL_CHANNEL_OFFSET + 1;
 TF_LR_SPEAKER_OFFSET = 7;
 TF_SW_SPEAKER_OFFSET = 8;
 
+// Settings schema v2 appends fields without moving any Classic offsets.
+TF_PROTECTION_CODES_OFFSET = 9;
+TF_TALK_GROUPS_OFFSET = 10;
+TF_SETTINGS_SCHEMA_OFFSET = 11;
+TF_SETTINGS_SCHEMA_VERSION = 2;
+
+TFAR_DEFAULT_PROTECTION_CODE = "000";
+TFAR_DEFAULT_TALK_GROUP = 0;
+
+// Radio capability tuple: [waveform, minKhz, maxKhz, stepKhz].
+TFAR_CAP_WAVEFORM_OFFSET = 0;
+TFAR_CAP_MIN_KHZ_OFFSET = 1;
+TFAR_CAP_MAX_KHZ_OFFSET = 2;
+TFAR_CAP_STEP_KHZ_OFFSET = 3;
+TFAR_DEFAULT_VOICE_WAVEFORM = "tfar_fm_voice";
+TFAR_DEFAULT_FREQUENCY_STEP_KHZ = 100;
+
 tf_getTeamSpeakServerName = {
 	diag_log "WARNING: depreciated function call: tf_getTeamSpeakServerName replace with TFAR_fnc_getTeamSpeakServerName";
 	call TFAR_fnc_getTeamSpeakServerName

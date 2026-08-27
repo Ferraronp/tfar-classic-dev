@@ -14,7 +14,22 @@
  	Returns:
 	STRING - Encryption code
  	
- 	Example:
+	Example:
 	(call TFAR_fnc_activeLrRadio) call TFAR_fnc_getLrRadioCode;
 */
-((_this call TFAR_fnc_getLrSettings) select TF_CODE_OFFSET)
+private ["_mode", "_channel"];
+_mode = missionNamespace getVariable ["TFAR_radioNetworkMode", "Legacy"];
+if (typeName _mode != "STRING") then {
+	_mode = "Legacy";
+};
+
+switch (toUpper _mode) do {
+	case "OPEN": {""};
+	case "KEYED": {
+		_channel = _this call TFAR_fnc_getLrChannel;
+		[_this, _channel] call TFAR_fnc_getLrProtectionCode
+	};
+	default {
+		((_this call TFAR_fnc_getLrSettings) select TF_CODE_OFFSET)
+	};
+}

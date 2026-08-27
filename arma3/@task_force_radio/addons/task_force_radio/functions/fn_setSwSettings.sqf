@@ -20,16 +20,18 @@
 		_settings set [0, 2]; // sets the active channel to 2
 		[(call TFAR_fnc_activeSwRadio), _settings] call TFAR_fnc_setSwSettings;
 */
-private ["_radio_id", "_value", "_variableName", "_local"];
+private ["_radio_id", "_value", "_variableName", "_local", "_storedValue", "_localValue"];
 _radio_id = _this select 0;
-_value = _this select 1;
+_value = (_this select 1) call TFAR_fnc_migrateRadioSettings;
 _variableName = format["%1_settings", _radio_id];
 _local = false;
 if (count _this == 3) then {
 	_local = _this select 2;
 };
-missionNamespace setVariable [_variableName, + _value];
-missionNamespace setVariable [_variableName + "_local", + _value];
+_storedValue = _value call TFAR_fnc_cloneRadioSettings;
+_localValue = _value call TFAR_fnc_cloneRadioSettings;
+missionNamespace setVariable [_variableName, _storedValue];
+missionNamespace setVariable [_variableName + "_local", _localValue];
 if !(_local) then {		
 	publicVariable _variableName;
 }
