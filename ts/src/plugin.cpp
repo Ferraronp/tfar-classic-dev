@@ -27,6 +27,7 @@
 #include "public_rare_definitions.h"
 #include "ts3_functions.h"
 #include "plugin.h"
+#include "protocol.h"
 #include "DspFilters\Butterworth.h"
 #include "sqlite3\sqlite3.h"
 #include "simpleSource\SimpleComp.h"
@@ -426,12 +427,17 @@ struct SERVER_RADIO_DATA
 	std::string serious_mod_channel_name;
 	std::string serious_mod_channel_password;
 	std::string addon_version;
+	bool protocolNegotiated;
+	int protocolVersion;
+	std::vector<std::string> protocolCapabilities;
 
 	int currentDataFrame;
 
 	SERVER_RADIO_DATA()
 	{
 		tangentPressed = false;
+		protocolNegotiated = false;
+		protocolVersion = 1;
 		currentDataFrame = INVALID_DATA_FRAME;
 		terrainIntersectionCoefficient = 7.0f;
 		globalVolume = receivingDistanceMultiplicator = 1.0f;
@@ -1766,10 +1772,74 @@ void processSpeakers(std::vector<std::string> tokens, uint64 currentServerConnec
 	
 }
 
+std::vector<std::string> supportedProtocolCapabilities()
+{
+	// Protocol v2 can be negotiated independently of optional features. Routing
+	// capabilities are added only with their complete, fail-closed handlers.
+	return std::vector<std::string>();
+}
+
+std::string processProtocolCommand(const std::vector<std::string>& tokens, uint64 currentServerConnectionHandlerID)
+{
+	const tfar::protocol::NegotiationResult result = tfar::protocol::negotiate(
+		tokens, supportedProtocolCapabilities());
+	if (result.status == tfar::protocol::NEGOTIATION_OK)
+	{
+		EnterCriticalSection(&serverDataCriticalSection);
+		SERVER_RADIO_DATA& serverData = serverIdToData[currentServerConnectionHandlerID];
+		serverData.protocolNegotiated = true;
+		serverData.protocolVersion = result.version;
+		serverData.protocolCapabilities = result.capabilities;
+		LeaveCriticalSection(&serverDataCriticalSection);
+	}
+	return tfar::protocol::negotiationResponse(result);
+}
+
+tfar::protocol::CommandResult parseProtocolCommand(
+	const std::vector<std::string>& tokens,
+	uint64 currentServerConnectionHandlerID)
+{
+	const std::vector<std::string> noCapabilities;
+	const tfar::protocol::CommandResult preliminaryResult = tfar::protocol::parseCommand(
+		tokens, false, 1, noCapabilities);
+	if (preliminaryResult.status != tfar::protocol::COMMAND_NEGOTIATION_REQUIRED)
+		return preliminaryResult;
+
+	bool protocolNegotiated = false;
+	int protocolVersion = 1;
+	std::vector<std::string> protocolCapabilities;
+
+	EnterCriticalSection(&serverDataCriticalSection);
+	if (serverIdToData.count(currentServerConnectionHandlerID))
+	{
+		const SERVER_RADIO_DATA& serverData = serverIdToData[currentServerConnectionHandlerID];
+		protocolNegotiated = serverData.protocolNegotiated;
+		protocolVersion = serverData.protocolVersion;
+		protocolCapabilities = serverData.protocolCapabilities;
+	}
+	LeaveCriticalSection(&serverDataCriticalSection);
+
+	return tfar::protocol::parseCommand(
+		tokens, protocolNegotiated, protocolVersion, protocolCapabilities);
+}
+
 std::string processGameCommand(std::string command)
 {
 	uint64 currentServerConnectionHandlerID = ts3Functions.getCurrentServerConnectionHandlerID();
 	std::vector<std::string> tokens = split(command, '\t'); //may not be used in nickname	
+	if (!tokens.empty() && tokens[0] == "PROTOCOL")
+		return processProtocolCommand(tokens, currentServerConnectionHandlerID);
+
+	const tfar::protocol::CommandResult protocolCommand = parseProtocolCommand(
+		tokens, currentServerConnectionHandlerID);
+	if (protocolCommand.status != tfar::protocol::COMMAND_LEGACY)
+	{
+		// Versioned route payloads are never allowed to fall through to the v1
+		// parser. Their capabilities remain unavailable until the corresponding
+		// structured route handlers are implemented.
+		return tfar::protocol::commandErrorResponse(protocolCommand);
+	}
+
 	if (tokens.size() == 2 && tokens[0] == "TS_INFO")
 		return ts_info(tokens[1]);
 	if (tokens.size() > 2 && tokens[0] == "KILLED")

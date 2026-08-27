@@ -163,6 +163,11 @@ TF_UNDERWATER_RADIO_DEPTH = -3;
 TF_new_line = toString [0xA];
 TF_vertical_tab = toString [0xB];
 
+TFAR_pluginProtocolNegotiated = false;
+TFAR_pluginProtocolVersion = 1;
+TFAR_pluginProtocolCapabilities = [];
+TFAR_pluginProtocolNextNegotiation = 0;
+
 TF_dd_volume_level = 7;
 
 TF_last_lr_tangent_press = 0.0;
