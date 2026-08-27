@@ -142,6 +142,7 @@ TFAR_currentUnit = call TFAR_fnc_currentUnit;
 #include "script.h"
 
 TF_radio_request_mutex = false;
+TFAR_currentUnitRadioReady = true;
 
 TF_use_saved_sw_setting = false;
 TF_saved_active_sw_settings = nil;
@@ -298,6 +299,17 @@ TFAR_currentUnit = call TFAR_fnc_currentUnit;
 ["unit", {
 	[_this select 0, _this select 1] call TFAR_fnc_onCurrentUnitChanged;
 }, true] call CBA_fnc_addPlayerEventHandler;
+
+// Zeus remote control does not consistently raise the CBA unit event on old
+// Arma/CBA combinations. Keep a lightweight watcher so the shared radio is
+// locked before the player can open it.
+[{
+	private "_unit";
+	_unit = call TFAR_fnc_currentUnit;
+	if (_unit != TFAR_currentUnit) then {
+		[_unit, TFAR_currentUnit] call TFAR_fnc_onCurrentUnitChanged;
+	};
+}, 0.05] call CBA_fnc_addPerFrameHandler;
 
 [] spawn {
 	waitUntil {sleep 0.1;!(isNull player)};

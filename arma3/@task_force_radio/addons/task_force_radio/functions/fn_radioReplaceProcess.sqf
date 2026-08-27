@@ -27,11 +27,13 @@ while {true} do {
 		_set = (TFAR_currentUnit getVariable "tf_handlers_set");
 		if (isNil "_set") then {
 			TFAR_currentUnit addEventHandler ["Take", {
-				private ["_class", "_unit"];
+				private ["_class", "_unit", "_radio", "_duplicateOfPlayer"];
 				_unit = _this select 0;
-				_class = ConfigFile >> "CfgWeapons" >> (_this select 2);
-				if (isClass _class AND {isNumber (_class >> "tf_radio")}) then {
-					[(_this select 2), _unit call TFAR_fnc_getRadioOwnerId] call TFAR_fnc_setRadioOwner;
+				_radio = _this select 2;
+				_class = ConfigFile >> "CfgWeapons" >> _radio;
+				_duplicateOfPlayer = (_unit != player) and {_radio in (player call TFAR_fnc_radiosList)};
+				if ((isClass _class) AND {isNumber (_class >> "tf_radio")} and {!_duplicateOfPlayer}) then {
+					[_radio, _unit call TFAR_fnc_getRadioOwnerId] call TFAR_fnc_setRadioOwner;
 				};
 			}];
 			TFAR_currentUnit addEventHandler ["Put", {

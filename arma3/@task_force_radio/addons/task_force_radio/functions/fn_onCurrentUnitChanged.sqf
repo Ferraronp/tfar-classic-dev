@@ -75,6 +75,9 @@ if (_changed) then {
 		"task_force_radio_pipe" callExtension (format ["RELEASE_ALL_TANGENTS	%1", name player]);
 	};
 
+	// Hide the SW radio until duplicate-instance normalisation completes.
+	// Copying a loadout can give both units the exact same radio classname.
+	TFAR_currentUnitRadioReady = false;
 	TFAR_currentUnit = _newUnit;
 
 	// Force position and frequency data to be rebuilt from the new point of
@@ -101,6 +104,9 @@ if (_changed) then {
 		};
 		if ((TFAR_currentUnit == _unit) and {alive _unit}) then {
 			[false, true] call TFAR_fnc_requestRadios;
+		};
+		if (TFAR_currentUnit == _unit) then {
+			TFAR_currentUnitRadioReady = true;
 		};
 	};
 };

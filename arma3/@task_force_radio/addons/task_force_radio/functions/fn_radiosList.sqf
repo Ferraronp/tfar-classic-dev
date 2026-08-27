@@ -16,6 +16,8 @@
  	Example:
 		_radios = TFAR_currentUnit call TFAR_fnc_radiosList;
 */
+if (!(isNil "TFAR_currentUnit") and {_this == TFAR_currentUnit} and {!(missionNamespace getVariable ["TFAR_currentUnitRadioReady", true])}) exitWith {[]};
+
 private ["_result"];
 _result = [];
 {	
