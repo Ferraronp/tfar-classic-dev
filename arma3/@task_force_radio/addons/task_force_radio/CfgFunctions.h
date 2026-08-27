@@ -67,6 +67,7 @@ class CfgFunctions
 			class getCurrentLrStereo;
 			class getDefaultRadioClasses;
 			class getRadioOwner;
+			class getRadioOwnerId;
 			class getSwSpeakers;
 			class getLrSpeakers;
 			// H
@@ -115,6 +116,7 @@ class CfgFunctions
 			class onLRDialogOpen;
 			class onDDDialogOpen;
 			class onGroundHint;
+			class onCurrentUnitChanged;
 			// P
 			class preparePositionCoordinates;
 			class processSWChannelKeys;

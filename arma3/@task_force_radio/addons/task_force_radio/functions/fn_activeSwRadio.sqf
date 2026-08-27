@@ -16,6 +16,8 @@
  	Example:
 		_radio = call TFAR_fnc_activeSwRadio;
 */
+if !(missionNamespace getVariable ["TFAR_currentUnitRadioReady", true]) exitWith {nil};
+
 private ["_result"];
 _result = nil;
 {	

@@ -17,9 +17,9 @@
  	Example:
 		call TFAR_fnc_processRespawn;
 */
-[] spawn {	
-	waitUntil {!(isNull player)};	
-	TFAR_currentUnit = call TFAR_fnc_currentUnit;
+[] spawn {
+	waitUntil {!(isNull player)};
+	[call TFAR_fnc_currentUnit, TFAR_currentUnit] call TFAR_fnc_onCurrentUnitChanged;
 	
 	TF_respawnedAt = time;
 	if (alive TFAR_currentUnit) then {

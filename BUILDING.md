@@ -1,8 +1,8 @@
 # Сборка TFAR Classic
 
-Инструкция предназначена для сборки TeamSpeak-плагина TFAR Classic на Windows 10/11.
+Инструкция предназначена для сборки TeamSpeak-плагина и игрового PBO TFAR Classic. TeamSpeak-плагин собирается на Windows 10/11, игровой аддон — локально на Windows или автоматически в GitHub Actions.
 
-Игровые PBO этой командой не собираются. Результат — две DLL:
+Сборка TeamSpeak-плагина создаёт две DLL:
 
 - task_force_radio_win32.dll;
 - task_force_radio_win64.dll.
@@ -401,7 +401,116 @@ Get-FileHash $installed -Algorithm SHA256
 - после смерти, потери сознания и возрождения звук восстанавливается;
 - после выхода из Arma обычный звук TeamSpeak восстанавливается.
 
-## 10. Частые ошибки
+## 10. Сборка игрового аддона
+
+Игровая сборка пересобирает только `task_force_radio.pbo` — аддон со скриптами, конфигурацией и интерфейсами. Она не пересобирает модели `task_force_radio_items.pbo` и расширение `task_force_radio_pipe.dll`.
+
+Результат является оверлеем для оригинального TFAR 0.9.12, а не самостоятельным модом.
+
+### Требования
+
+1. Git LFS с загруженными файлами папки игрового аддона.
+2. [HEMTT](https://hemtt.dev/installation/).
+
+Установка HEMTT на Windows:
+
+~~~powershell
+winget install hemtt
+~~~
+
+Если репозиторий был получен без LFS-файлов:
+
+~~~powershell
+git lfs pull --include="arma3/@task_force_radio/addons/task_force_radio/**"
+~~~
+
+### Локальная сборка
+
+Из корня репозитория:
+
+~~~powershell
+.\scripts\build-arma-addon.ps1
+~~~
+
+Скрипт:
+
+- проверяет, что необходимые Git LFS-файлы загружены;
+- создаёт временный HEMTT-проект только для `task_force_radio.pbo`;
+- упаковывает PBO без зависимости от установленной Arma 3 Tools;
+- создаёт тестовую подпись и публичный `.bikey`;
+- формирует ZIP-оверлей и выводит SHA-256.
+
+Готовый архив:
+
+~~~text
+dist\game-addon\tfar-classic-game.zip
+~~~
+
+Структура архива:
+
+~~~text
+@task_force_radio\
+└── addons\
+    ├── task_force_radio.pbo
+    └── task_force_radio.pbo.tfar_classic_dev.bisign
+keys\
+└── tfar_classic_dev.bikey
+README.txt
+~~~
+
+Название файла подписи или ключа может содержать версию HEMTT. Скрипт находит их автоматически.
+
+Для сохранения временного HEMTT-проекта и полного лога сборки:
+
+~~~powershell
+.\scripts\build-arma-addon.ps1 -KeepStage
+~~~
+
+### GitHub Actions
+
+Workflow `.github/workflows/arma-addon.yml` запускается:
+
+- в pull request в `classic`, если изменился игровой аддон, скрипт сборки или эта инструкция;
+- после таких же изменений в ветке `classic`;
+- вручную через вкладку Actions.
+
+Artifact `tfar-classic-game-<run>-<attempt>` содержит готовый ZIP. CI загружает LFS только для `task_force_radio`, поэтому отсутствующие исходники старых моделей вне этого PBO не мешают сборке.
+
+### Установка тестовой сборки
+
+Сначала полностью закрыть Arma 3 и Launcher. Затем распаковать ZIP поверх установленного оригинального `@task_force_radio`.
+
+Перед заменой сохранить исходный PBO и его подпись:
+
+~~~powershell
+$repo = (git rev-parse --show-toplevel).Trim()
+$mod = "C:\путь\к\@task_force_radio"
+$unpacked = "$repo\dist\game-addon\unpacked"
+$backup = "$repo\dist\game-addon\backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+
+New-Item -ItemType Directory -Force $unpacked, $backup | Out-Null
+Expand-Archive "$repo\dist\game-addon\tfar-classic-game.zip" $unpacked -Force
+
+Copy-Item "$mod\addons\task_force_radio.pbo" $backup -Force
+Move-Item "$mod\addons\task_force_radio.pbo.*.bisign" $backup -Force -ErrorAction SilentlyContinue
+Copy-Item "$unpacked\@task_force_radio\addons\task_force_radio.pbo*" "$mod\addons" -Force
+~~~
+
+Для сервера с `verifySignatures` скопировать приложенный `.bikey` в серверную папку `keys`. Ключ CI тестовый и может измениться в следующем artifact; для публичных релизов позже нужен постоянный ключ, который не хранится в Git.
+
+### Проверка Zeus remote control
+
+Проверить в multiplayer с отдельным Zeus-клиентом:
+
+- вход в remote control и выход из него;
+- переключение с юнита A на юнита B;
+- локальный голос и слышимость рядом и на расстоянии;
+- передачу и приём только через рации управляемого юнита;
+- переключение во время зажатой кнопки передачи;
+- смерть и удаление управляемого юнита;
+- отсутствие привязки к старому юниту после выхода.
+
+## 11. Частые ошибки
 
 ### MSB8020: не найден toolset v142
 
@@ -438,7 +547,7 @@ Get-FileHash $installed -Algorithm SHA256
 
 Сравнить размер и SHA-256 установленной DLL с текущей сборкой. Возможно, TeamSpeak загрузил старую официальную DLL.
 
-## 11. Что не добавлять в Git
+## 12. Что не добавлять в Git
 
 Результаты локальной сборки и упаковки не входят в исходный код:
 

@@ -16,18 +16,24 @@
  	Example:
 		[] spawn TFAR_fnc_radioReplaceProcess;
 */
-private ["_currentPlayerFlag", "_active_sw_radio", "_active_lr_radio", "_set", "_controlled"];
+private ["_currentPlayerFlag", "_active_sw_radio", "_active_lr_radio", "_set", "_newCurrentUnit"];
 while {true} do {
-	TFAR_currentUnit = call TFAR_fnc_currentUnit;
+	_newCurrentUnit = call TFAR_fnc_currentUnit;
+	if (_newCurrentUnit != TFAR_currentUnit) then {
+		[_newCurrentUnit, TFAR_currentUnit] call TFAR_fnc_onCurrentUnitChanged;
+	};
 	if ((isNil "TFAR_previouscurrentUnit") or {TFAR_previouscurrentUnit != TFAR_currentUnit}) then {
 		TFAR_previouscurrentUnit = TFAR_currentUnit;
 		_set = (TFAR_currentUnit getVariable "tf_handlers_set");
 		if (isNil "_set") then {
 			TFAR_currentUnit addEventHandler ["Take", {
-				private "_class";
-				_class = ConfigFile >> "CfgWeapons" >> (_this select 2);
-				if (isClass _class AND {isNumber (_class >> "tf_radio")}) then {
-					[(_this select 2), getPlayerUID player] call TFAR_fnc_setRadioOwner;
+				private ["_class", "_unit", "_radio", "_duplicateOfPlayer"];
+				_unit = _this select 0;
+				_radio = _this select 2;
+				_class = ConfigFile >> "CfgWeapons" >> _radio;
+				_duplicateOfPlayer = (_unit != player) and {_radio in (player call TFAR_fnc_radiosList)};
+				if ((isClass _class) AND {isNumber (_class >> "tf_radio")} and {!_duplicateOfPlayer}) then {
+					[_radio, _unit call TFAR_fnc_getRadioOwnerId] call TFAR_fnc_setRadioOwner;
 				};
 			}];
 			TFAR_currentUnit addEventHandler ["Put", {
@@ -52,24 +58,6 @@ while {true} do {
 			TFAR_currentUnit setVariable ["tf_handlers_set", true];
 		};
 	};
-	if (TFAR_currentUnit != player) then {
-		_controlled = player getVariable "tf_controlled_unit";
-		if (isNil "_controlled") then {
-			player setVariable ["tf_controlled_unit", TFAR_currentUnit, true];
-			if (isMultiplayer) then {
-				"task_force_radio_pipe" callExtension (format ["RELEASE_ALL_TANGENTS	%1", name player]);
-			};
-		};
-	} else {
-		_controlled = player getVariable "tf_controlled_unit";
-		if !(isNil "_controlled") then {
-			player setVariable ["tf_controlled_unit", nil, true];
-			if (isMultiplayer) then {
-				"task_force_radio_pipe" callExtension (format ["RELEASE_ALL_TANGENTS	%1", name player]);
-			};
-		};
-	};
-
 	// hide curator players
 	{
 		if (_x call TFAR_fnc_isForcedCurator) then {
