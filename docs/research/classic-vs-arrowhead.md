@@ -175,6 +175,8 @@ waveform + frequency + protectionCode + talkGroup
 
 Для MVP код может быть трёхзначным, но в протоколе его лучше хранить строкой: это оставляет ведущие нули и не мешает будущим пресетам.
 
+Подробная модель хранения, таблица совместимости, threat model, формат v2-протокола, UI и миграция preset-частот зафиксированы в [отдельном техническом дизайне](../design/radio-network-protection.md).
+
 ## 5. Talk Groups
 
 Готовых Talk Groups в Arrowhead нет. Ближайший upstream-запрос — открытый [#1443](https://github.com/michail-nikolaev/task-force-arma-3-radio/issues/1443) про selective squelch: отдельный TX-код и список разрешённых RX-кодов на одной частоте. Текущий additional channel умеет слушать/передавать только вторую пару «частота + тот же radio code».
