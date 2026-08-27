@@ -250,6 +250,7 @@
     <ClInclude Include="Clunk.h" />
     <ClInclude Include="RadioEffect.h" />
     <ClInclude Include="plugin.h" />
+    <ClInclude Include="protocol.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="apicompat.asm">

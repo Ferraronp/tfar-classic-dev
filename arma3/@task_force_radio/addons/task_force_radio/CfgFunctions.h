@@ -95,6 +95,8 @@ class CfgFunctions
 			class lrRadioSubMenu;
 			class lrRadioMenu;
 			class lrRadiosList;
+			// N
+			class negotiatePluginProtocol;
 			// O
 			class objectInterception;
 			class onAdditionalSwTangentReleased;
