@@ -31,7 +31,7 @@ _isSLR = if (typename _source == typename []) then {true}else{false};
 if (_isSLR) then {
 	_settings = _source call TFAR_fnc_GetLRSettings;
 	if (_isDLR) then {
-		[_destination select 0, _destination select 1,[]+_settings] call TFAR_fnc_SetLRSettings;
+		[_destination select 0, _destination select 1, _settings call TFAR_fnc_cloneRadioSettings] call TFAR_fnc_SetLRSettings;
 	} else {
 		diag_log "TFAR - unable to copy from LR to SW";
 		hint "TFAR - unable to copy from LR to SW";
@@ -39,7 +39,7 @@ if (_isSLR) then {
 } else {
 	_settings = _source call TFAR_fnc_GetSwSettings;
 	if (!_isDLR) then {
-		_settings = []+_settings;
+		_settings = _settings call TFAR_fnc_cloneRadioSettings;
 		_support_additional = getNumber (configFile >> "CfgWeapons" >> _destination >> "tf_additional_channel");
 		if ((isNil "_support_additional") or {_support_additional == 0}) then {
 			_settings set [TF_ADDITIONAL_CHANNEL_OFFSET, -1];

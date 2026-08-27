@@ -19,7 +19,7 @@
 	(call TFAR_fnc_activeLrRadio) call TFAR_fnc_getLrSettings;
 */
 #include "script.h"
-private ["_radio_object", "_radio_qualifier", "_value", "_rc", "_radioType"];
+private ["_radio_object", "_radio_qualifier", "_value", "_rc", "_radioType", "_schemaVersion", "_needsMigration", "_frequencyCount", "_codes", "_talkGroups", "_migrated"];
 _radio_object = _this select 0;
 _radio_qualifier = _this select 1;
 _value = _radio_object getVariable _radio_qualifier;
@@ -91,6 +91,46 @@ if (isNil "_value") then {
 		
 		_value set [TF_CODE_OFFSET, _rc];		
 	};
-	[_radio_object, _radio_qualifier, + _value] call TFAR_fnc_setLrSettings;
+	_value = _value call TFAR_fnc_migrateRadioSettings;
+	[_radio_object, _radio_qualifier, _value] call TFAR_fnc_setLrSettings;
 };
-_value
+
+_schemaVersion = 0;
+if ((count _value) > TF_SETTINGS_SCHEMA_OFFSET) then {
+	if (!isNil {_value select TF_SETTINGS_SCHEMA_OFFSET}) then {
+		if (typeName (_value select TF_SETTINGS_SCHEMA_OFFSET) == "SCALAR") then {
+			_schemaVersion = _value select TF_SETTINGS_SCHEMA_OFFSET;
+		};
+	};
+};
+_needsMigration = _schemaVersion < TF_SETTINGS_SCHEMA_VERSION;
+if (_schemaVersion == TF_SETTINGS_SCHEMA_VERSION) then {
+	_frequencyCount = 0;
+	if ((count _value) > TF_FREQ_OFFSET) then {
+		if (typeName (_value select TF_FREQ_OFFSET) == "ARRAY") then {
+			_frequencyCount = count (_value select TF_FREQ_OFFSET);
+		};
+	};
+	_codes = [];
+	if ((count _value) > TF_PROTECTION_CODES_OFFSET) then {
+		if (!isNil {_value select TF_PROTECTION_CODES_OFFSET}) then {
+			_codes = _value select TF_PROTECTION_CODES_OFFSET;
+		};
+	};
+	_talkGroups = [];
+	if ((count _value) > TF_TALK_GROUPS_OFFSET) then {
+		if (!isNil {_value select TF_TALK_GROUPS_OFFSET}) then {
+			_talkGroups = _value select TF_TALK_GROUPS_OFFSET;
+		};
+	};
+	_needsMigration = (typeName _codes != "ARRAY")
+		or {typeName _talkGroups != "ARRAY"}
+		or {(count _codes) != _frequencyCount}
+		or {(count _talkGroups) != _frequencyCount};
+};
+
+_migrated = _value call TFAR_fnc_migrateRadioSettings;
+if (_needsMigration) then {
+	[_radio_object, _radio_qualifier, _migrated] call TFAR_fnc_setLrSettings;
+};
+_migrated

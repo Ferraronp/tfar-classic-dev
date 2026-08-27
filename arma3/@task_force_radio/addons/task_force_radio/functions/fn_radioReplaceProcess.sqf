@@ -71,7 +71,7 @@ while {true} do {
 		if ((alive TFAR_currentUnit) and (call TFAR_fnc_haveSWRadio)) then {
 			_active_sw_radio = call TFAR_fnc_activeSwRadio;
 			if !(isNil "_active_sw_radio") then {
-				TF_saved_active_sw_settings = _active_sw_radio call TFAR_fnc_getSwSettings;
+				TF_saved_active_sw_settings = (_active_sw_radio call TFAR_fnc_getSwSettings) call TFAR_fnc_cloneRadioSettings;
 			} else {
 				TF_saved_active_sw_settings = nil;
 			};
@@ -84,7 +84,7 @@ while {true} do {
 		if ((alive TFAR_currentUnit) and (call TFAR_fnc_haveLRRadio)) then {
 			_active_lr_radio = call TFAR_fnc_activeLrRadio;
 			if !(isNil "_active_lr_radio") then {
-				TF_saved_active_lr_settings = _active_lr_radio call TFAR_fnc_getLrSettings;
+				TF_saved_active_lr_settings = (_active_lr_radio call TFAR_fnc_getLrSettings) call TFAR_fnc_cloneRadioSettings;
 			} else {
 				TF_saved_active_lr_settings = nil;
 			};

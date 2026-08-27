@@ -20,6 +20,7 @@ class CfgFunctions
 			class canUseSWRadio;
 			class canUseLRRadio;
 			class canUseDDRadio;
+			class cloneRadioSettings;
 			class copyRadioSettingMenu;
 			class CopySettings;
 			class currentDirection;
@@ -68,6 +69,10 @@ class CfgFunctions
 			class getDefaultRadioClasses;
 			class getRadioOwner;
 			class getRadioOwnerId;
+			class getRadioCapabilities;
+			class getRadioRoute;
+			class getSwProtectionCode;
+			class getLrProtectionCode;
 			class getSwSpeakers;
 			class getLrSpeakers;
 			// H
@@ -90,13 +95,18 @@ class CfgFunctions
 			class isSpeaking;
 			class isTeamSpeakPluginEnabled;
 			class isTurnedOut;
+			class isFrequencySupported;
+			class isValidProtectionCode;
 			class isVehicleIsolated;
 			// L
 			class lrRadioSubMenu;
 			class lrRadioMenu;
 			class lrRadiosList;
+			// M
+			class migrateRadioSettings;
 			// N
 			class negotiatePluginProtocol;
+			class normalizeFrequencyKhz;
 			// O
 			class objectInterception;
 			class onAdditionalSwTangentReleased;
@@ -162,6 +172,8 @@ class CfgFunctions
 			class ShowRadioInfo;
 			class setSwRadioCode;
 			class setLrRadioCode;
+			class setSwProtectionCode;
+			class setLrProtectionCode;
 			class setVoiceVolume;
 			class setActiveSwRadio;
 			class setActiveLrRadio;
