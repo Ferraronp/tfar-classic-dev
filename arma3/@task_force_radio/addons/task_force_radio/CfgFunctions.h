@@ -67,6 +67,7 @@ class CfgFunctions
 			class getCurrentLrStereo;
 			class getDefaultRadioClasses;
 			class getRadioOwner;
+			class getRadioOwnerId;
 			class getSwSpeakers;
 			class getLrSpeakers;
 			// H

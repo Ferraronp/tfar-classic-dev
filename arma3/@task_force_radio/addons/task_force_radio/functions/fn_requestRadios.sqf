@@ -18,7 +18,10 @@
  	Example:
 		spawn TFAR_fnc_requestRadios;
 */
-private ["_radiosToRequest", "_variableName", "_responseVariableName", "_response", "_fnc_CopySettings"];
+private ["_radiosToRequest", "_variableName", "_responseVariableName", "_response", "_fnc_CopySettings", "_unit", "_ownerId"];
+
+_unit = TFAR_currentUnit;
+_ownerId = _unit call TFAR_fnc_getRadioOwnerId;
 
 _fnc_CopySettings = {
 	private ["_source", "_destination", "_variableName", "_localSettings"];
@@ -45,7 +48,7 @@ waitUntil {
 if ((time - TF_last_request_time > 3) or {_this}) then {
 	TF_last_request_time = time;
 	_variableName = "radio_request_" + (getPlayerUID player) + str (player call BIS_fnc_objectSide);
-	_radiosToRequest = _this call TFAR_fnc_radioToRequestCount;
+	_radiosToRequest = [_this, _unit] call TFAR_fnc_radioToRequestCount;
 
 	if ((count _radiosToRequest) > 0) then {
 		missionNamespace setVariable [_variableName, _radiosToRequest];
@@ -66,16 +69,16 @@ if ((time - TF_last_request_time > 3) or {_this}) then {
 			if (_radioCount > 0) then {
 				if (TF_first_radio_request) then {
 					TF_first_radio_request = false;
-					TFAR_currentUnit linkItem (_response select 0);
+					_unit linkItem (_response select 0);
 					_copyIndex = [_settingsCount, _copyIndex, (_response select 0)] call _fnc_CopySettings;					
-					[(_response select 0), getPlayerUID player, true] call TFAR_fnc_setRadioOwner;
+					[(_response select 0), _ownerId, true] call TFAR_fnc_setRadioOwner;
 					_startIndex = 1;
 				};
 				_radioCount = _radioCount - 1;
 				for "_index" from _startIndex to _radioCount do {
-					TFAR_currentUnit addItem (_response select _index);
+					_unit addItem (_response select _index);
 					_copyIndex = [_settingsCount, _copyIndex, (_response select _index)] call _fnc_CopySettings;
-					[(_response select _index), getPlayerUID player, true] call TFAR_fnc_setRadioOwner;
+					[(_response select _index), _ownerId, true] call TFAR_fnc_setRadioOwner;
 				};
 				//TF_settingsToCopy = [];
 			};
@@ -84,7 +87,7 @@ if ((time - TF_last_request_time > 3) or {_this}) then {
 		};
 		call TFAR_fnc_HideHint;
 		//								unit, radios
-		["OnRadiosReceived", TFAR_currentUnit, [TFAR_currentUnit, _response]] call TFAR_fnc_fireEventHandlers;
+		["OnRadiosReceived", _unit, [_unit, _response]] call TFAR_fnc_fireEventHandlers;
 	};
 	TF_last_request_time = time;
 };
