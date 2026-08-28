@@ -2,6 +2,14 @@
 <Project ID="Arma2">
 	<Package ID="Missions">
 		<Container ID="A3RU_MissionInformation">
+			<Key ID="STR_radio_routing_plugin_incompatible">
+				<Original>
+					Radio routing is unavailable: update and enable the Task Force Radio TeamSpeak plugin.
+				</Original>
+				<Russian>
+					Радиосвязь недоступна: обновите и включите плагин Task Force Radio для TeamSpeak.
+				</Russian>
+			</Key>
 			<Key ID="STR_different_version">
 				<Original>
 					Different version of Task Force Radio are used. Server version: %1, Your version: %2

@@ -14,6 +14,7 @@ class CfgFunctions
 			class addEventHandler;
 			// B
 			class backpackLr;
+			class buildRadioTangentCommand;
 			// C
 			class calcTerrainInterception;
 			class canSpeak;
@@ -67,15 +68,18 @@ class CfgFunctions
 			class getCurrentSwStereo;
 			class getCurrentLrStereo;
 			class getDefaultRadioClasses;
+			class getDiverRadioRoute;
 			class getRadioOwner;
 			class getRadioOwnerId;
 			class getRadioCapabilities;
 			class getRadioRoute;
+			class getSpeakerRadioRoutes;
 			class getSwProtectionCode;
 			class getLrProtectionCode;
 			class getSwSpeakers;
 			class getLrSpeakers;
 			// H
+			class hasPluginProtocolCapability;
 			class hasVehicleRadio;
 			class haveProgrammator;
 			class hideHint;
@@ -183,6 +187,8 @@ class CfgFunctions
 			class swRadioSubMenu;
 			class swRadioMenu;
 			class sendFrequencyInfo;
+			class serializeRadioReceiveRoute;
+			class serializeRadioRoute;
 			class showRadioVolume;
 			class SetChannelFrequency;
 			class setRadioOwner;

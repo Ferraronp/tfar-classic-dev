@@ -1,4 +1,4 @@
-private["_depth", "_freq"];
+private["_depth", "_freq", "_command"];
 if (!(TF_tangent_sw_pressed) and {alive TFAR_currentUnit} and {call TFAR_fnc_haveSWRadio}) then {	
 	if (call TFAR_fnc_isAbleToUseRadio) then {
 		call TFAR_fnc_unableToUseHint;
@@ -10,14 +10,13 @@ if (!(TF_tangent_sw_pressed) and {alive TFAR_currentUnit} and {call TFAR_fnc_hav
 			
 			if ((_radio call TFAR_fnc_getAdditionalSwChannel) > -1) then {
 				_freq = [_radio, (_radio call TFAR_fnc_getAdditionalSwChannel) + 1] call TFAR_fnc_GetChannelFrequency;
-				["OnBeforeTangent", TFAR_currentUnit, [TFAR_currentUnit, _radio, 0, true, true]] call TFAR_fnc_fireEventHandlers;
-				[format[localize "STR_additional_transmit",format ["%1<img size='1.5' image='%2'/>", getText (ConfigFile >> "CfgWeapons" >> _radio >> "displayName"), getText(configFile >> "CfgWeapons"  >> _radio >> "picture")], (_radio call TFAR_fnc_getAdditionalSwChannel) + 1, _freq],
-				format["TANGENT	PRESSED	%1%2	%3	%4", _freq, _radio call TFAR_fnc_getSwRadioCode, getNumber(configFile >> "CfgWeapons" >> _radio >> "tf_range") * (call TFAR_fnc_getTransmittingDistanceMultiplicator), getText(configFile >> "CfgWeapons" >> _radio >> "tf_subtype")],
-				-1
-				] call TFAR_fnc_ProcessTangent;
-				TF_tangent_sw_pressed = true;
-				//						unit, radio, radioType, additional, buttonDown
-				["OnTangent", TFAR_currentUnit, [TFAR_currentUnit, _radio, 0, true, true]] call TFAR_fnc_fireEventHandlers;
+				_command = ["TANGENT", "PRESSED", _radio, _radio call TFAR_fnc_getAdditionalSwChannel, _freq, getNumber(configFile >> "CfgWeapons" >> _radio >> "tf_range") * (call TFAR_fnc_getTransmittingDistanceMultiplicator), getText(configFile >> "CfgWeapons" >> _radio >> "tf_subtype")] call TFAR_fnc_buildRadioTangentCommand;
+				if (_command != "") then {
+					["OnBeforeTangent", TFAR_currentUnit, [TFAR_currentUnit, _radio, 0, true, true]] call TFAR_fnc_fireEventHandlers;
+					[format[localize "STR_additional_transmit",format ["%1<img size='1.5' image='%2'/>", getText (ConfigFile >> "CfgWeapons" >> _radio >> "displayName"), getText(configFile >> "CfgWeapons"  >> _radio >> "picture")], (_radio call TFAR_fnc_getAdditionalSwChannel) + 1, _freq], _command, -1] call TFAR_fnc_ProcessTangent;
+					TF_tangent_sw_pressed = true;
+					["OnTangent", TFAR_currentUnit, [TFAR_currentUnit, _radio, 0, true, true]] call TFAR_fnc_fireEventHandlers;
+				};
 			};
 		} else {
 			call TFAR_fnc_inWaterHint;

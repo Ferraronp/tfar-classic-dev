@@ -16,7 +16,7 @@
  	Example:
 		call TFAR_fnc_processPlayerPositions;
 */
-private ["_elemsNearToProcess","_elemsFarToProcess","_other_units", "_unit", "_controlled", "_speakers"];
+private ["_elemsNearToProcess","_elemsFarToProcess","_other_units", "_unit", "_controlled", "_speakers", "_mode", "_useV2", "_payload"];
 if !(isNull (findDisplay 46)) then {
 	if !(isNull TFAR_currentUnit) then {
 		if ((tf_farPlayersProcessed) and {tf_nearPlayersProcessed}) then {				
@@ -97,10 +97,22 @@ if !(isNull (findDisplay 46)) then {
 						
 						call TFAR_fnc_processSpeakerRadios;
 						
-						_speakers = "SPEAKERS	";
-						{
-							_speakers = _speakers + TF_vertical_tab + _x;
-						} count (tf_speakerRadios);
+						_mode = missionNamespace getVariable ["TFAR_radioNetworkMode", "Legacy"];
+						if (typeName _mode != "STRING") then {_mode = "Legacy"};
+						_useV2 = (toUpper _mode) in ["OPEN", "KEYED"];
+						if (_useV2
+							and {missionNamespace getVariable ["TFAR_pluginRouteModeActive", false]}
+							and {"speakers_v2" call TFAR_fnc_hasPluginProtocolCapability}) then {
+							_payload = if ((count tf_speakerRadios) == 0) then {"-"} else {tf_speakerRadios joinString TF_vertical_tab};
+							_speakers = format ["SPEAKERS	2	%1", _payload];
+						} else {
+							_speakers = "SPEAKERS	";
+							if (!_useV2) then {
+								{
+									_speakers = _speakers + TF_vertical_tab + _x;
+								} count (tf_speakerRadios);
+							};
+						};
 						"task_force_radio_pipe" callExtension _speakers;
 
 						tf_speakerRadios = [];

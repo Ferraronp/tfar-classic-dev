@@ -21,7 +21,7 @@
 	Example:
 		[_newUnit, _oldUnit] call TFAR_fnc_onCurrentUnitChanged;
 */
-private ["_newUnit", "_oldUnit", "_changed"];
+private ["_newUnit", "_oldUnit", "_changed", "_mode", "_useV2", "_command"];
 
 _newUnit = if ((count _this) > 0) then {_this select 0} else {call TFAR_fnc_currentUnit};
 if (isNull _newUnit) then {
@@ -30,6 +30,9 @@ if (isNull _newUnit) then {
 
 _oldUnit = missionNamespace getVariable ["TFAR_currentUnit", player];
 _changed = _newUnit != _oldUnit;
+_mode = missionNamespace getVariable ["TFAR_radioNetworkMode", "Legacy"];
+if (typeName _mode != "STRING") then {_mode = "Legacy"};
+_useV2 = (toUpper _mode) in ["OPEN", "KEYED"];
 
 if (_changed) then {
 	// Release against the old unit while its inventory and radio settings are
@@ -41,7 +44,12 @@ if (_changed) then {
 		};
 		if (TF_tangent_sw_pressed) then {
 			if (isMultiplayer) then {
-				"task_force_radio_pipe" callExtension "TANGENT	RELEASED	No_SW_Radio	0	digital";
+				_command = "";
+				if (_useV2) then {
+					_command = ["TANGENT", "RELEASED", objNull, 0, "", 0, "digital"] call TFAR_fnc_buildRadioTangentCommand;
+				};
+				if (_command == "") then {_command = "TANGENT	RELEASED	No_SW_Radio	0	digital"};
+				"task_force_radio_pipe" callExtension _command;
 			};
 			TF_tangent_sw_pressed = false;
 		};
@@ -53,7 +61,12 @@ if (_changed) then {
 		};
 		if (TF_tangent_lr_pressed) then {
 			if (isMultiplayer) then {
-				"task_force_radio_pipe" callExtension "TANGENT_LR	RELEASED	No_LR_Radio	0	digital_lr";
+				_command = "";
+				if (_useV2) then {
+					_command = ["TANGENT_LR", "RELEASED", [], 0, "", 0, "digital_lr"] call TFAR_fnc_buildRadioTangentCommand;
+				};
+				if (_command == "") then {_command = "TANGENT_LR	RELEASED	No_LR_Radio	0	digital_lr"};
+				"task_force_radio_pipe" callExtension _command;
 			};
 			TF_tangent_lr_pressed = false;
 		};
@@ -65,7 +78,12 @@ if (_changed) then {
 		};
 		if (TF_tangent_dd_pressed) then {
 			if (isMultiplayer) then {
-				"task_force_radio_pipe" callExtension "TANGENT_DD	RELEASED	No_DD_Radio	0	dd";
+				_command = "";
+				if (_useV2) then {
+					_command = ["TANGENT_DD", "RELEASED", "DD", 0, TF_dd_frequency, 0, "dd"] call TFAR_fnc_buildRadioTangentCommand;
+				};
+				if (_command == "") then {_command = "TANGENT_DD	RELEASED	No_DD_Radio	0	dd"};
+				"task_force_radio_pipe" callExtension _command;
 			};
 			TF_tangent_dd_pressed = false;
 		};

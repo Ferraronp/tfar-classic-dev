@@ -430,6 +430,7 @@ struct SERVER_RADIO_DATA
 	bool protocolNegotiated;
 	int protocolVersion;
 	std::vector<std::string> protocolCapabilities;
+	bool routingV2Active;
 
 	int currentDataFrame;
 
@@ -438,6 +439,7 @@ struct SERVER_RADIO_DATA
 		tangentPressed = false;
 		protocolNegotiated = false;
 		protocolVersion = 1;
+		routingV2Active = false;
 		currentDataFrame = INVALID_DATA_FRAME;
 		terrainIntersectionCoefficient = 7.0f;
 		globalVolume = receivingDistanceMultiplicator = 1.0f;
@@ -1692,9 +1694,24 @@ struct PTTDelayArguments
 
 PTTDelayArguments ptt_arguments;
 
+bool isVersionedTangentCommandText(const std::string& command)
+{
+	const std::size_t firstTab = command.find('\t');
+	if (firstTab == std::string::npos)
+		return false;
+	const std::string name = command.substr(0, firstTab);
+	if (name != "TANGENT" && name != "TANGENT_LR" && name != "TANGENT_DD")
+		return false;
+	const std::size_t secondTab = command.find('\t', firstTab + 1);
+	return secondTab != std::string::npos
+		&& command.substr(firstTab + 1, secondTab - firstTab - 1) == "2";
+}
+
 void disableVoiceAndSendCommand(std::string commandToBroadcast, uint64 currentServerConnectionHandlerID, boolean pressed)
 {
-	log_string(commandToBroadcast, LogLevel_DEVEL);
+	log_string(isVersionedTangentCommandText(commandToBroadcast)
+		? "LOCAL TANGENT v2 [route redacted]"
+		: commandToBroadcast, LogLevel_DEVEL);
 	DWORD error;
 	if ((error = ts3Functions.setClientSelfVariableAsInt(currentServerConnectionHandlerID, CLIENT_INPUT_DEACTIVATED, pressed || vadEnabled ? INPUT_ACTIVE : INPUT_DEACTIVATED)) != ERROR_ok) {
 		log("Can't active talking by tangent", error);
@@ -1772,11 +1789,151 @@ void processSpeakers(std::vector<std::string> tokens, uint64 currentServerConnec
 	
 }
 
+void resetRoutingModeState(SERVER_RADIO_DATA& serverData)
+{
+	for (STRING_TO_CLIENT_DATA_MAP::iterator iterator = serverData.nicknameToClientData.begin();
+		iterator != serverData.nicknameToClientData.end(); ++iterator)
+	{
+		CLIENT_DATA* clientData = iterator->second;
+		if (clientData != NULL)
+		{
+			clientData->tangentOverType = LISTEN_TO_NONE;
+			clientData->frequency.clear();
+			clientData->range = 0;
+			clientData->resetRadioEffect();
+		}
+	}
+	serverData.speakers.clear();
+}
+
+bool isRoutingV2Active(uint64 serverConnectionHandlerID)
+{
+	bool active = false;
+	EnterCriticalSection(&serverDataCriticalSection);
+	if (serverIdToData.count(serverConnectionHandlerID))
+		active = serverIdToData[serverConnectionHandlerID].routingV2Active;
+	LeaveCriticalSection(&serverDataCriticalSection);
+	return active;
+}
+
+void updateLocalNicknameV2(uint64 serverConnectionHandlerID, const std::string& nickname)
+{
+	const std::string myNickname = getMyNickname(serverConnectionHandlerID);
+	if (myNickname == nickname || myNickname.empty() || nickname == "Error: No unit"
+		|| nickname == "Error: No vehicle" || nickname == "any")
+		return;
+
+	DWORD error;
+	if ((error = ts3Functions.setClientSelfVariableAsString(
+		serverConnectionHandlerID, CLIENT_NICKNAME, nickname.c_str())) != ERROR_ok)
+	{
+		log("Error setting client nickname", error);
+		return;
+	}
+	EnterCriticalSection(&serverDataCriticalSection);
+	serverIdToData[serverConnectionHandlerID].myOriginalNickname = myNickname;
+	LeaveCriticalSection(&serverDataCriticalSection);
+}
+
+std::string processFrequenciesV2(
+	const std::vector<std::string>& tokens,
+	uint64 currentServerConnectionHandlerID)
+{
+	tfar::protocol::FrequencyCommand parsed;
+	if (!tfar::protocol::parseFrequencyCommand(tokens, parsed))
+		return "PROTOCOL_ERROR\tMALFORMED_COMMAND";
+
+	std::map<std::string, FREQ_SETTINGS> swFrequencies;
+	std::map<std::string, FREQ_SETTINGS> lrFrequencies;
+	for (std::size_t i = 0; i < parsed.swRoutes.size(); ++i)
+	{
+		FREQ_SETTINGS settings;
+		settings.volume = parsed.swRoutes[i].volume;
+		settings.stereoMode = parsed.swRoutes[i].stereoMode;
+		swFrequencies[tfar::protocol::radioRouteKey(parsed.swRoutes[i].route)] = settings;
+	}
+	for (std::size_t i = 0; i < parsed.lrRoutes.size(); ++i)
+	{
+		FREQ_SETTINGS settings;
+		settings.volume = parsed.lrRoutes[i].volume;
+		settings.stereoMode = parsed.lrRoutes[i].stereoMode;
+		lrFrequencies[tfar::protocol::radioRouteKey(parsed.lrRoutes[i].route)] = settings;
+	}
+	const std::string ddFrequency = parsed.hasDdRoute
+		? tfar::protocol::radioRouteKey(parsed.ddRoute)
+		: std::string();
+
+	EnterCriticalSection(&serverDataCriticalSection);
+	if (!serverIdToData.count(currentServerConnectionHandlerID))
+	{
+		LeaveCriticalSection(&serverDataCriticalSection);
+		return "FAIL";
+	}
+	SERVER_RADIO_DATA& serverData = serverIdToData[currentServerConnectionHandlerID];
+	if (!serverData.routingV2Active)
+		resetRoutingModeState(serverData);
+	serverData.routingV2Active = true;
+	serverData.mySwFrequencies.swap(swFrequencies);
+	serverData.myLrFrequencies.swap(lrFrequencies);
+	serverData.myDdFrequency = ddFrequency;
+	serverData.alive = parsed.alive;
+	serverData.myVoiceVolume = parsed.voiceVolume;
+	serverData.ddVolumeLevel = parsed.ddVolume;
+	serverData.wavesLevel = static_cast<float>(parsed.wavesLevel);
+	serverData.terrainIntersectionCoefficient = static_cast<float>(parsed.terrainIntersectionCoefficient);
+	serverData.globalVolume = static_cast<float>(parsed.globalVolume);
+	serverData.receivingDistanceMultiplicator = static_cast<float>(parsed.receivingDistanceMultiplier);
+	serverData.speakerDistance = static_cast<float>(parsed.speakerDistance);
+	LeaveCriticalSection(&serverDataCriticalSection);
+
+	updateLocalNicknameV2(currentServerConnectionHandlerID, parsed.nickname);
+	return "OK";
+}
+
+std::string processSpeakersV2(
+	const std::vector<std::string>& tokens,
+	uint64 currentServerConnectionHandlerID)
+{
+	std::vector<tfar::protocol::SpeakerRecord> parsed;
+	if (tokens.size() != 3 || !tfar::protocol::parseSpeakersPayload(tokens[2], parsed))
+		return "PROTOCOL_ERROR\tMALFORMED_COMMAND";
+
+	std::multimap<std::string, SPEAKER_DATA> speakers;
+	for (std::size_t i = 0; i < parsed.size(); ++i)
+	{
+		SPEAKER_DATA data;
+		data.radio_id = parsed[i].radioId;
+		data.nickname = parsed[i].nickname;
+		for (std::size_t coordinate = 0; coordinate < parsed[i].position.size(); ++coordinate)
+			data.pos.push_back(static_cast<float>(parsed[i].position[coordinate]));
+		data.volume = parsed[i].volume;
+		data.vehicle = getVehicleDescriptor(parsed[i].vehicle);
+		data.waveZ = static_cast<float>(parsed[i].waveZ);
+		for (std::size_t route = 0; route < parsed[i].routes.size(); ++route)
+		{
+			speakers.insert(std::pair<std::string, SPEAKER_DATA>(
+				tfar::protocol::radioRouteKey(parsed[i].routes[route]), data));
+		}
+	}
+
+	EnterCriticalSection(&serverDataCriticalSection);
+	if (!serverIdToData.count(currentServerConnectionHandlerID)
+		|| !serverIdToData[currentServerConnectionHandlerID].routingV2Active)
+	{
+		LeaveCriticalSection(&serverDataCriticalSection);
+		return "PROTOCOL_ERROR\tROUTING_MODE_INACTIVE";
+	}
+	serverIdToData[currentServerConnectionHandlerID].speakers.swap(speakers);
+	LeaveCriticalSection(&serverDataCriticalSection);
+	return "OK";
+}
+
 std::vector<std::string> supportedProtocolCapabilities()
 {
-	// Protocol v2 can be negotiated independently of optional features. Routing
-	// capabilities are added only with their complete, fail-closed handlers.
-	return std::vector<std::string>();
+	std::vector<std::string> capabilities;
+	capabilities.push_back(tfar::protocol::RADIO_ROUTE_V2);
+	capabilities.push_back(tfar::protocol::SPEAKERS_V2);
+	return capabilities;
 }
 
 std::string processProtocolCommand(const std::vector<std::string>& tokens, uint64 currentServerConnectionHandlerID)
@@ -1823,6 +1980,74 @@ tfar::protocol::CommandResult parseProtocolCommand(
 		tokens, protocolNegotiated, protocolVersion, protocolCapabilities);
 }
 
+std::string processLocalTangentV2(
+	const std::string& command,
+	uint64 currentServerConnectionHandlerID,
+	const tfar::protocol::TangentCommand& tangent)
+{
+	bool changed = false;
+	std::string nickname;
+	EnterCriticalSection(&serverDataCriticalSection);
+	if (serverIdToData.count(currentServerConnectionHandlerID))
+	{
+		SERVER_RADIO_DATA& serverData = serverIdToData[currentServerConnectionHandlerID];
+		changed = serverData.tangentPressed != tangent.pressed;
+		serverData.tangentPressed = tangent.pressed;
+		nickname = serverData.myNickname;
+		if (serverData.nicknameToClientData.count(serverData.myNickname))
+		{
+			CLIENT_DATA* clientData = serverData.nicknameToClientData[serverData.myNickname];
+			if (clientData != NULL)
+			{
+				if (tangent.longRange) clientData->canUseLRRadio = true;
+				else if (tangent.diverRadio) clientData->canUseDDRadio = true;
+				else clientData->canUseSWRadio = true;
+				clientData->subtype = tangent.subtype;
+			}
+		}
+	}
+	LeaveCriticalSection(&serverDataCriticalSection);
+
+	if (!changed)
+		return "OK";
+	const std::string commandToBroadcast = command + "\t" + nickname;
+	if (tangent.pressed)
+	{
+		if (tangent.subtype == "digital_lr") playWavFile("radio-sounds/lr/local_start");
+		else if (tangent.subtype == "dd") playWavFile("radio-sounds/dd/local_start");
+		else if (tangent.subtype == "digital") playWavFile("radio-sounds/sw/local_start");
+		else if (tangent.subtype == "airborne") playWavFile("radio-sounds/ab/local_start");
+
+		EnterCriticalSection(&tangentCriticalSection);
+		if (!waiting_tangent_off)
+		{
+			vadEnabled = hlp_checkVad();
+			if (vadEnabled) hlp_disableVad();
+			disableVoiceAndSendCommand(commandToBroadcast, currentServerConnectionHandlerID, true);
+		}
+		else
+		{
+			skip_tangent_off = true;
+		}
+		LeaveCriticalSection(&tangentCriticalSection);
+	}
+	else
+	{
+		PTTDelayArguments args;
+		args.commandToBroadcast = commandToBroadcast;
+		args.currentServerConnectionHandlerID = currentServerConnectionHandlerID;
+		args.subtype = tangent.subtype;
+		ptt_arguments = args;
+
+		if (tangent.subtype == "digital_lr") playWavFile("radio-sounds/lr/local_end");
+		else if (tangent.subtype == "dd") playWavFile("radio-sounds/dd/local_end");
+		else if (tangent.subtype == "digital") playWavFile("radio-sounds/sw/local_end");
+		else if (tangent.subtype == "airborne") playWavFile("radio-sounds/ab/local_end");
+		CreateThread(NULL, 0, process_tangent_off, NULL, 0, NULL);
+	}
+	return "OK";
+}
+
 std::string processGameCommand(std::string command)
 {
 	uint64 currentServerConnectionHandlerID = ts3Functions.getCurrentServerConnectionHandlerID();
@@ -1832,13 +2057,25 @@ std::string processGameCommand(std::string command)
 
 	const tfar::protocol::CommandResult protocolCommand = parseProtocolCommand(
 		tokens, currentServerConnectionHandlerID);
-	if (protocolCommand.status != tfar::protocol::COMMAND_LEGACY)
+	if (protocolCommand.status == tfar::protocol::COMMAND_READY)
 	{
-		// Versioned route payloads are never allowed to fall through to the v1
-		// parser. Their capabilities remain unavailable until the corresponding
-		// structured route handlers are implemented.
+		if (tokens[0] == "FREQ")
+			return processFrequenciesV2(tokens, currentServerConnectionHandlerID);
+		if (tokens[0] == "SPEAKERS")
+			return processSpeakersV2(tokens, currentServerConnectionHandlerID);
+		if (tokens[0] == "TANGENT" || tokens[0] == "TANGENT_LR" || tokens[0] == "TANGENT_DD")
+		{
+			tfar::protocol::TangentCommand tangent;
+			if (!tfar::protocol::parseTangentCommand(tokens, false, tangent))
+				return "PROTOCOL_ERROR\tMALFORMED_COMMAND";
+			if (tangent.pressed && !isRoutingV2Active(currentServerConnectionHandlerID))
+				return "PROTOCOL_ERROR\tROUTING_MODE_INACTIVE";
+			return processLocalTangentV2(command, currentServerConnectionHandlerID, tangent);
+		}
 		return tfar::protocol::commandErrorResponse(protocolCommand);
 	}
+	if (protocolCommand.status != tfar::protocol::COMMAND_LEGACY)
+		return tfar::protocol::commandErrorResponse(protocolCommand);
 
 	if (tokens.size() == 2 && tokens[0] == "TS_INFO")
 		return ts_info(tokens[1]);
@@ -1946,17 +2183,21 @@ std::string processGameCommand(std::string command)
 		EnterCriticalSection(&serverDataCriticalSection);
 		if (serverIdToData.count(currentServerConnectionHandlerID))
 		{
-			serverIdToData[currentServerConnectionHandlerID].mySwFrequencies = parseFrequencies(tokens[1]);
-			serverIdToData[currentServerConnectionHandlerID].myLrFrequencies = parseFrequencies(tokens[2]);
-			serverIdToData[currentServerConnectionHandlerID].myDdFrequency = tokens[3];
-			serverIdToData[currentServerConnectionHandlerID].alive = tokens[4] == "true";
-			serverIdToData[currentServerConnectionHandlerID].myVoiceVolume = parseArmaNumberToInt(tokens[5]);
-			serverIdToData[currentServerConnectionHandlerID].ddVolumeLevel = (int)std::atof(tokens[6].c_str());
-			serverIdToData[currentServerConnectionHandlerID].wavesLevel = (float)std::atof(tokens[8].c_str());
-			serverIdToData[currentServerConnectionHandlerID].terrainIntersectionCoefficient = (float)std::atof(tokens[9].c_str());
-			serverIdToData[currentServerConnectionHandlerID].globalVolume = (float)std::atof(tokens[10].c_str());			
-			serverIdToData[currentServerConnectionHandlerID].receivingDistanceMultiplicator = (float)std::atof(tokens[12].c_str());
-			serverIdToData[currentServerConnectionHandlerID].speakerDistance = (float)std::atof(tokens[13].c_str());
+			SERVER_RADIO_DATA& serverData = serverIdToData[currentServerConnectionHandlerID];
+			if (serverData.routingV2Active)
+				resetRoutingModeState(serverData);
+			serverData.routingV2Active = false;
+			serverData.mySwFrequencies = parseFrequencies(tokens[1]);
+			serverData.myLrFrequencies = parseFrequencies(tokens[2]);
+			serverData.myDdFrequency = tokens[3];
+			serverData.alive = tokens[4] == "true";
+			serverData.myVoiceVolume = parseArmaNumberToInt(tokens[5]);
+			serverData.ddVolumeLevel = (int)std::atof(tokens[6].c_str());
+			serverData.wavesLevel = (float)std::atof(tokens[8].c_str());
+			serverData.terrainIntersectionCoefficient = (float)std::atof(tokens[9].c_str());
+			serverData.globalVolume = (float)std::atof(tokens[10].c_str());
+			serverData.receivingDistanceMultiplicator = (float)std::atof(tokens[12].c_str());
+			serverData.speakerDistance = (float)std::atof(tokens[13].c_str());
 
 		}
 		std::string nickname = tokens[7];
@@ -3053,23 +3294,26 @@ void processAllTangentRelease(uint64 serverId, std::vector<std::string> &tokens)
 	LeaveCriticalSection(&serverDataCriticalSection);
 }
 
-void processTangentPress(uint64 serverId, std::vector<std::string> &tokens, std::string &command)
+void processTangentPress(
+	uint64 serverId,
+	const tfar::protocol::TangentCommand& tangent,
+	const std::string& command,
+	bool redactRoute)
 {
 	DWORD time = GetTickCount();
-	bool pressed = (tokens[1] == "PRESSED");
-	bool longRange = (tokens[0] == "TANGENT_LR");
-	bool diverRadio = (tokens[0] == "TANGENT_DD");
-	bool shortRange = !longRange && !diverRadio;
-	std::string subtype = tokens[4];
-	int range = parseArmaNumberToInt(tokens[3]);
-	std::string nickname = tokens[5];
-	std::string frequency = tokens[2];
+	bool pressed = tangent.pressed;
+	bool longRange = tangent.longRange;
+	bool diverRadio = tangent.diverRadio;
+	std::string subtype = tangent.subtype;
+	int range = tangent.range;
+	std::string nickname = tangent.nickname;
+	std::string frequency = tangent.routeKeyValue;
 
 	boolean playPressed = false;
 	boolean playReleased = false;
 	anyID myId = getMyId(serverId);
 	EnterCriticalSection(&serverDataCriticalSection);
-	bool alive = serverIdToData[serverId].alive;
+	bool alive = serverIdToData.count(serverId) && serverIdToData[serverId].alive;
 
 	if (serverIdToData.count(serverId) && serverIdToData[serverId].nicknameToClientData.count(nickname))
 	{
@@ -3085,9 +3329,9 @@ void processTangentPress(uint64 serverId, std::vector<std::string> &tokens, std:
 			else if (diverRadio) clientData->canUseDDRadio = true;
 			else clientData->canUseSWRadio = true;
 
-			TS3_VECTOR myPosition = serverIdToData[serverId].myPosition;			
-			
-				log_string(std::string("REMOTE COMMAND ") + command, LogLevel_DEVEL);
+				log_string(redactRoute
+					? "REMOTE TANGENT v2 [route redacted]"
+					: std::string("REMOTE COMMAND ") + command, LogLevel_DEVEL);
 				if ((clientData->tangentOverType != LISTEN_TO_NONE) != pressed)
 				{
 					playPressed = pressed;
@@ -3154,7 +3398,9 @@ void processTangentPress(uint64 serverId, std::vector<std::string> &tokens, std:
 					}			
 			else
 			{
-				log_string(std::string("MY COMMAND ") + command, LogLevel_DEVEL);
+				log_string(redactRoute
+					? "MY TANGENT v2 [route redacted]"
+					: std::string("MY COMMAND ") + command, LogLevel_DEVEL);
 			}
 		}
 		else
@@ -3174,9 +3420,28 @@ void processPluginCommand(std::string command)
 	DWORD currentTime = GetTickCount();
 	std::vector<std::string> tokens = split(command, '\t'); // may not be used in nickname
 	uint64 serverId = ts3Functions.getCurrentServerConnectionHandlerID();
-	if (tokens.size() == 6 && (tokens[0] == "TANGENT" || tokens[0] == "TANGENT_LR" || tokens[0] == "TANGENT_DD"))
+	const bool routingV2Active = isRoutingV2Active(serverId);
+	const bool tangentCommand = !tokens.empty()
+		&& (tokens[0] == "TANGENT" || tokens[0] == "TANGENT_LR" || tokens[0] == "TANGENT_DD");
+	if (tfar::protocol::acceptsRemoteTangent(routingV2Active, true)
+		&& tokens.size() == 10 && tangentCommand)
 	{
-		processTangentPress(serverId, tokens, command);
+		tfar::protocol::TangentCommand tangent;
+		if (tfar::protocol::parseTangentCommand(tokens, true, tangent))
+			processTangentPress(serverId, tangent, command, true);
+	}
+	else if (tfar::protocol::acceptsRemoteTangent(routingV2Active, false)
+		&& tokens.size() == 6 && tangentCommand)
+	{
+		tfar::protocol::TangentCommand tangent;
+		tangent.pressed = tokens[1] == "PRESSED";
+		tangent.longRange = tokens[0] == "TANGENT_LR";
+		tangent.diverRadio = tokens[0] == "TANGENT_DD";
+		tangent.routeKeyValue = tokens[2];
+		tangent.range = parseArmaNumberToInt(tokens[3]);
+		tangent.subtype = tokens[4];
+		tangent.nickname = tokens[5];
+		processTangentPress(serverId, tangent, command, false);
 	}
 	else if (tokens.size() == 2 && tokens[0] == "RELEASE_ALL_TANGENTS") 
 	{
@@ -3206,17 +3471,22 @@ void processPluginCommand(std::string command)
 	}
 	else
 	{
-		log_string(std::string("UNKNOWN PLUGIN COMMAND ") + command);
+		log_string(tangentCommand
+			? "IGNORED TANGENT [route redacted]"
+			: std::string("UNKNOWN PLUGIN COMMAND ") + command);
 	}
 }
 
 void ts3plugin_onPluginCommandEventOld(uint64 serverConnectionHandlerID, const char* pluginName, const char* pluginCommand) {
-	log_string(std::string("ON PLUGIN COMMAND ") + pluginName + " " + pluginCommand, LogLevel_DEVEL);
+	const std::string command = pluginCommand != NULL ? pluginCommand : "";
+	log_string(isVersionedTangentCommandText(command)
+		? std::string("ON PLUGIN COMMAND ") + pluginName + " TANGENT v2 [route redacted]"
+		: std::string("ON PLUGIN COMMAND ") + pluginName + " " + command, LogLevel_DEVEL);
 	if (serverConnectionHandlerID == ts3Functions.getCurrentServerConnectionHandlerID())
 	{
 		if (strncmp(pluginName, PLUGIN_NAME, strlen(PLUGIN_NAME)) == 0)
 		{
-			processPluginCommand(std::string(pluginCommand));
+			processPluginCommand(command);
 		}
 		else
 		{
