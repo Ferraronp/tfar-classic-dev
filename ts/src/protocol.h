@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "radio_route.h"
+
 namespace tfar {
 namespace protocol {
 

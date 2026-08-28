@@ -167,6 +167,11 @@ TFAR_pluginProtocolNegotiated = false;
 TFAR_pluginProtocolVersion = 1;
 TFAR_pluginProtocolCapabilities = [];
 TFAR_pluginProtocolNextNegotiation = 0;
+TFAR_pluginRouteModeActive = false;
+TFAR_pluginRouteWarningShown = false;
+TFAR_swTangentV2Cache = [];
+TFAR_lrTangentV2Cache = [];
+TFAR_ddTangentV2Cache = [];
 
 TF_dd_volume_level = 7;
 
