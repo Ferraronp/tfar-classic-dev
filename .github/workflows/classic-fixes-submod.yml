@@ -1,0 +1,64 @@
+name: Сборка сабмода TFAR Classic Fixes
+
+on:
+  pull_request:
+    paths:
+      - "submod/**"
+      - "scripts/build-submod.py"
+      - ".github/workflows/classic-fixes-submod.yml"
+  push:
+    branches:
+      - classic
+    paths:
+      - "submod/**"
+      - "scripts/build-submod.py"
+      - ".github/workflows/classic-fixes-submod.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: classic-fixes-submod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Собрать и подписать сабмод
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Получить только исходники сабмода
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          sparse-checkout: |
+            submod
+            scripts/build-submod.py
+          sparse-checkout-cone-mode: false
+
+      - name: Установить HEMTT
+        uses: arma-actions/hemtt@v1
+
+      - name: Собрать и проверить архив
+        run: python3 scripts/build-submod.py
+
+      - name: Сохранить журнал сборки
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfar-classic-fixes-build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: dist/submod-stage/hemtt-release.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Опубликовать сабмод
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfar-classic-fixes-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            dist/submod/tfar-classic-fixes.zip
+            dist/submod/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
