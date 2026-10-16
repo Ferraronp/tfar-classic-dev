@@ -1,0 +1,9 @@
+# Configuration merges into TFAR's classes at game startup; no Arma install
+# or copy of the base mod is needed to pack the addon.
+ignore_pboprefix = true
+
+[binarize]
+enabled = false
+
+[rapify]
+enabled = false

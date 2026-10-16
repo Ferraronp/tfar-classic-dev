@@ -1,0 +1,14 @@
+name = "TFAR Classic Fixes"
+prefix = "tfar_classic"
+
+[version]
+major = 1
+minor = 0
+patch = 0
+git_hash = 8
+
+[signing]
+authority = "tfar_classic_fixes_test"
+
+[hemtt.release]
+archive = false
